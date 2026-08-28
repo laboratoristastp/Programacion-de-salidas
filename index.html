@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TP Laboratorios - Sistema de Asignación</title>
+<style>
+  :root {
+    --azul-marino-oscuro: #0d3b66;
+    --azul-marino: #123a5c;
+    --azul-medio: #1f5c8b;
+    --azul-fuerte: #2a7dbd;
+    --celeste: #4fc3f7;
+    --celeste-medio: #7fd4fb;
+    --celeste-claro: #cdeefd;
+    --celeste-fondo: #eef8fd;
+    --gris-texto: #1a1a1a;
+    --gris-suave: #5a6a78;
+    --borde-suave: #cfe8f7;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--celeste-fondo);
+    color: var(--gris-texto);
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    flex-shrink: 0;
+    background: linear-gradient(135deg, var(--azul-marino-oscuro), var(--azul-fuerte));
+    color: white;
+    padding: 20px 20px;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(13,59,102,0.25);
+    z-index: 10;
+  }
+
+  header h1 {
+    font-size: 22px;
+    font-weight: 600;
+  }
+
+  header p {
+    font-size: 13px;
+    opacity: 0.9;
+    margin-top: 4px;
+    color: var(--celeste-claro);
+  }
+
+  .container {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 16px 16px 20px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 6px rgba(13,59,102,0.1);
+    border: 1px solid var(--borde-suave);
+  }
+
+  .card h2 {
+    font-size: 17px;
+    color: var(--azul-marino-oscuro);
+    margin-bottom: 14px;
+    border-bottom: 2px solid var(--celeste-claro);
+    padding-bottom: 8px;
+  }
+
+  .proyecto-item {
+    border: 1px solid var(--borde-suave);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    background: var(--celeste-fondo);
+    position: relative;
+  }
+
+  .proyecto-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .proyecto-header span {
+    font-weight: 600;
+    color: var(--azul-medio);
+    font-size: 14px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .field-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gris-suave);
+    margin-bottom: 4px;
+  }
+
+  input, select {
+    padding: 9px 10px;
+    border: 1px solid var(--borde-suave);
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+    width: 100%;
+    color: var(--gris-texto);
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--azul-fuerte);
+    box-shadow: 0 0 0 2px rgba(42,125,189,0.18);
+  }
+
+  .ensayos-container {
+    background: white;
+    border: 1px dashed var(--celeste-medio);
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 8px;
+  }
+
+  .ensayos-container h4 {
+    font-size: 13px;
+    color: var(--azul-medio);
+    margin-bottom: 10px;
+  }
+
+  .ensayo-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr auto;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 9px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: var(--azul-fuerte);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--azul-marino-oscuro); }
+
+  .btn-success {
+    background: #2ba84a;
+    color: white;
+  }
+  .btn-success:hover { background: #1f8a3b; }
+
+  .btn-danger {
+    background: #d64550;
+    color: white;
+  }
+  .btn-danger:hover { background: #b53039; }
+
+  .btn-secondary {
+    background: var(--gris-suave);
+    color: white;
+  }
+  .btn-secondary:hover { background: #445260; }
+
+  .btn-small {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .btn-remove-proyecto {
+    background: #d64550;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .action-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+
+  .log-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--celeste-claro);
+  }
+
+  .file-label {
+    display: inline-block;
+    padding: 9px 16px;
+    background: var(--gris-suave);
+    color: white;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .file-label:hover { background: #445260; }
+
+  input[type="file"] {
+    display: none;
+  }
+
+  #previewSection {
+    display: none;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 10px;
+  }
+
+  table th {
+    background: var(--azul-marino-oscuro);
+    color: white;
+    padding: 10px 8px;
+    text-align: left;
+    position: sticky;
+    top: 0;
+  }
+
+  table td {
+    padding: 8px;
+    border-bottom: 1px solid var(--celeste-claro);
+  }
+
+  table tr:hover {
+    background: var(--celeste-fondo);
+  }
+
+  .warning-cell {
+    color: #d64550;
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--borde-suave);
+    border-radius: 6px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .table-wrapper::-webkit-scrollbar {
+    display: none;
+  }
+
+  #previewTableContainer {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--borde-suave);
+    border-radius: 6px;
+  }
+
+  #previewTableContainer::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  #previewTableContainer::-webkit-scrollbar-track {
+    background: var(--celeste-fondo);
+    border-radius: 6px;
+  }
+
+  #previewTableContainer::-webkit-scrollbar-thumb {
+    background: var(--azul-fuerte);
+    border-radius: 6px;
+  }
+
+  #previewTableContainer::-webkit-scrollbar-thumb:hover {
+    background: var(--azul-marino-oscuro);
+  }
+
+  table.tabla-resumen {
+    min-width: 1000px;
+    table-layout: auto;
+  }
+
+  table.tabla-resumen th,
+  table.tabla-resumen td {
+    white-space: nowrap;
+  }
+
+  .subtitle-detalle {
+    font-size: 14px;
+    color: var(--azul-medio);
+    margin: 20px 0 8px;
+    font-weight: 600;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 30px;
+    color: #9aa8b3;
+    font-size: 14px;
+  }
+
+  footer {
+    flex-shrink: 0;
+    text-align: center;
+    padding: 12px;
+    font-size: 12px;
+    color: white;
+    background: var(--azul-marino-oscuro);
+  }
+
+  #customAlert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--azul-marino-oscuro);
+    color: white;
+    padding: 14px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(13,59,102,0.3);
+    font-size: 14px;
+    z-index: 9999;
+    display: none;
+    max-width: 320px;
+  }
+
+  #customAlert.warning {
+    background: #d64550;
+  }
+
+  #customAlert.success {
+    background: #2ba84a;
+  }
+
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .ensayo-row { grid-template-columns: 1fr; }
+    .action-bar, .log-bar { flex-direction: column; }
+    .btn, .file-label { width: 100%; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Sistema de Asignación de Laboratoristas</h1>
+  <p>TP Laboratorios — Gestión diaria de proyectos y personal técnico</p>
+</header>
+
+<div class="container">
+
+  <!-- SECCIÓN: FORMULARIO DE PROYECTOS -->
+  <div class="card">
+    <h2>Proyectos del Día</h2>
+    <div id="proyectosFormContainer">
+      <!-- Renderizado dinámico por app.js -->
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn-primary" onclick="agregarProyecto()">+ Agregar Proyecto</button>
+      <button class="btn btn-success" onclick="procesarTodos()">Procesar Todos</button>
+      <button class="btn btn-secondary" onclick="limpiarLog()">Limpiar Todo</button>
+    </div>
+
+    <div class="log-bar">
+      <button class="btn btn-secondary btn-small" onclick="downloadLog()">💾 Guardar Log</button>
+      <label class="file-label btn-small">
+        📂 Cargar Log
+        <input type="file" id="logFileInput" accept=".json" onchange="handleLogFileChange(event)">
+      </label>
+    </div>
+  </div>
+
+  <!-- SECCIÓN: VISTA PREVIA DE ASIGNACIÓN -->
+  <div class="card" id="previewSection">
+    <h2>Vista Previa de Asignación</h2>
+    <div id="previewTableContainer">
+      <!-- Renderizado dinámico por app.js -->
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn-primary" onclick="exportarExcel()">📊 Descargar Excel</button>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  TP Laboratorios &copy; Sistema interno de asignación — Uso exclusivo del personal autorizado
+</footer>
+
+<div id="customAlert"></div>
+
+<!-- Librería para exportación a Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- Base de datos (debe cargarse primero) -->
+<script src="data.js"></script>
+
+<!-- Lógica de la aplicación -->
+<script src="app.js"></script>
+
+</body>
+</html>
