@@ -207,6 +207,12 @@
   }
   .btn-secondary:hover { background: #445260; }
 
+  .btn-warning {
+    background: #e8912d;
+    color: white;
+  }
+  .btn-warning:hover { background: #c67a1f; }
+
   .btn-small {
     padding: 6px 10px;
     font-size: 12px;
@@ -286,6 +292,12 @@
   }
 
   .warning-cell {
+    color: #d64550;
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  .advertencia {
     color: #d64550;
     font-weight: 600;
     font-size: 12px;
@@ -432,6 +444,9 @@
 
     <div class="action-bar">
       <button class="btn btn-primary" onclick="exportarExcel()">📊 Descargar Excel</button>
+      <button class="btn btn-warning" id="btnEditar" onclick="activarModoEdicion()">✏️ Editar</button>
+      <button class="btn btn-success" id="btnGuardarCambios" style="display:none;" onclick="guardarCambiosEdicion()">💾 Guardar Cambios</button>
+      <button class="btn btn-danger" id="btnCancelarEdicion" style="display:none;" onclick="cancelarEdicion()">❌ Cancelar</button>
     </div>
   </div>
 

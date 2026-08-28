@@ -16,6 +16,9 @@ let assignedMotoristasGlobally = new Set();
 
 let santaAnaRoundRobinIndex = 0;
 
+let modoEdicion = false;
+let logCambios = [];
+
 const OVERRIDE_GEOGRAFICO = {
   "San Miguel": ["Manolo Portillo"],
   "Santa Ana": ["Melvin Henrríquez", "Nelson Sánchez"],
@@ -91,9 +94,6 @@ function findBestLaboratorista(proyecto, ensayosRequeridos, resultadosPrevios) {
     : proyecto.area === "Zona 2" ? "zona2"
     : "licitacion";
 
-  // ---------- FIX APLICADO ----------
-  // Antes: for (let tier = 5; tier >= 1; tier--)  -> INCORRECTO (evaluaba primero baja prioridad)
-  // Ahora: for (let tier = 1; tier <= 5; tier++)  -> CORRECTO (1 = más prioritario, se evalúa primero)
   for (let tier = 1; tier <= 5; tier++) {
     const candidatosTier = PERSONAL_DB.filter(p =>
       p.esLaboratorista &&
@@ -129,6 +129,7 @@ function findMotoristaAvailable(proyecto, resultadosPrevios) {
 
 // ---------- BUSQUEDA DE VEHICULO ----------
 function findVehicle(persona, proyecto, resultadosPrevios) {
+  // Tier 1: vehículo PERSONAL propio
   if (persona.vehiculoPropio) {
     const vehiculoPersonal = VEHICULOS_DB.find(v => v.tipo === "PERSONAL" && v.asignadoA === persona.nombre);
     if (vehiculoPersonal) {
@@ -137,10 +138,25 @@ function findVehicle(persona, proyecto, resultadosPrevios) {
   }
 
   const vehiculosCompartidos = VEHICULOS_DB.filter(v => v.tipo === "COMPARTIDO");
+
+  // Tier 2: vehículo COMPARTIDO restringido, solo si la persona está autorizada
   for (const vehiculo of vehiculosCompartidos) {
     if (assignedVehiclesGlobally.has(vehiculo.id)) continue;
+    if (vehiculo.restringidoA && vehiculo.restringidoA.length > 0) {
+      if (vehiculo.restringidoA.includes(persona.nombre)) {
+        return vehiculo;
+      }
+      continue; // restringido y persona NO autorizada -> saltar
+    }
+  }
+
+  // Tier 3: vehículos COMPARTIDOS de pool general (sin restricción)
+  for (const vehiculo of vehiculosCompartidos) {
+    if (assignedVehiclesGlobally.has(vehiculo.id)) continue;
+    if (vehiculo.restringidoA && vehiculo.restringidoA.length > 0) continue; // ya evaluados en Tier 2
     return vehiculo;
   }
+
   return null;
 }
 
@@ -320,7 +336,7 @@ function actualizarCampoEnsayo(proyectoId, ensayoId, campo, valor) {
   ensayo[campo] = campo === "cantidad" ? parseInt(valor, 10) : valor;
 }
 
-// ---------- RENDER TABLA DE PREVIEW ----------
+// ---------- RENDER TABLA DE PREVIEW (MODO NORMAL) ----------
 function renderPreviewTable() {
   const container = document.getElementById("previewTableContainer");
   let html = `
@@ -375,7 +391,8 @@ function downloadLog() {
     assignedMotoristasGlobally: Array.from(assignedMotoristasGlobally),
     santaAnaRoundRobinIndex: santaAnaRoundRobinIndex,
     contadorProyectoId: contadorProyectoId,
-    contadorEnsayoId: contadorEnsayoId
+    contadorEnsayoId: contadorEnsayoId,
+    logCambios: logCambios
   };
 
   const blob = new Blob([JSON.stringify(log, null, 2)], { type: "application/json" });
@@ -404,12 +421,14 @@ function handleLogFileChange(event) {
       santaAnaRoundRobinIndex = log.santaAnaRoundRobinIndex || 0;
       contadorProyectoId = log.contadorProyectoId || 0;
       contadorEnsayoId = log.contadorEnsayoId || 0;
+      logCambios = log.logCambios || [];
 
       renderProyectosForm();
       if (resultadosAsignacion.length > 0) {
         renderPreviewTable();
         document.getElementById("previewSection").style.display = "block";
       }
+      toggleBotonesEdicion(false);
       alert("Log cargado correctamente.");
     } catch (err) {
       alert("Error al cargar el log: " + err.message);
@@ -428,9 +447,12 @@ function limpiarLog() {
   contadorProyectoId = 0;
   contadorEnsayoId = 0;
   sessionId = null;
+  logCambios = [];
+  modoEdicion = false;
 
   renderProyectosForm();
   document.getElementById("previewSection").style.display = "none";
+  toggleBotonesEdicion(false);
 }
 
 // ---------- EXPORTAR A EXCEL ----------
@@ -468,7 +490,157 @@ function exportarExcel() {
   XLSX.writeFile(wb, "Asignacion_TP_Laboratorios_" + Date.now() + ".xlsx");
 }
 
+// ============================================
+// EXTENSIÓN: MODO EDICIÓN DE ASIGNACIÓN
+// ============================================
+
+function getSedesDisponibles() {
+  const sedes = new Set(["ANTIGUO_CUSCATLAN"]);
+  PERSONAL_DB.forEach(p => {
+    if (p.ubicacionFija && p.ubicacionFija !== "FLEXIBLE") {
+      sedes.add(p.ubicacionFija);
+    }
+  });
+  return Array.from(sedes);
+}
+
+function renderPreviewTableEditable() {
+  const container = document.getElementById("previewTableContainer");
+  const laboratoristas = PERSONAL_DB.filter(p => p.esLaboratorista);
+  const motoristasPuros = PERSONAL_DB.filter(p => !p.esLaboratorista && p.esMotorista);
+  const vehiculos = VEHICULOS_DB;
+  const sedes = getSedesDisponibles();
+
+  let html = `
+    <table class="preview-table">
+      <thead>
+        <tr>
+          <th>Proyecto</th>
+          <th>Área</th>
+          <th>Región</th>
+          <th>Laboratorista</th>
+          <th>Motorista</th>
+          <th>Vehículo</th>
+          <th>Sede Origen</th>
+          <th>Destino</th>
+          <th>Ensayos</th>
+          <th>ADVERTENCIA</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  resultadosAsignacion.forEach(r => {
+    html += `
+      <tr data-proyecto-id="${r.proyectoId}">
+        <td>${r.nombreProyecto}</td>
+        <td>${r.area}</td>
+        <td>${r.region || "-"}</td>
+        <td>
+          <select class="edit-laboratorista">
+            <option value="">SIN ASIGNAR</option>
+            ${laboratoristas.map(p => `<option value="${p.nombre}" ${r.laboratorista === p.nombre ? "selected" : ""}>${p.nombre}</option>`).join("")}
+          </select>
+        </td>
+        <td>
+          <select class="edit-motorista">
+            <option value="">Ninguno</option>
+            ${motoristasPuros.map(p => `<option value="${p.nombre}" ${r.motorista === p.nombre ? "selected" : ""}>${p.nombre}</option>`).join("")}
+          </select>
+        </td>
+        <td>
+          <select class="edit-vehiculo">
+            <option value="">Ninguno</option>
+            ${vehiculos.map(v => `<option value="${v.id}" ${r.vehiculo === v.id ? "selected" : ""}>${v.id}</option>`).join("")}
+          </select>
+        </td>
+        <td>
+          <select class="edit-sede">
+            ${sedes.map(s => `<option value="${s}" ${r.sedeOrigen === s ? "selected" : ""}>${s}</option>`).join("")}
+          </select>
+        </td>
+        <td>${r.ubicacionDestino}</td>
+        <td>${r.ensayos.map(e => e.tipo + " (" + e.cantidad + ")").join(", ")}</td>
+        <td class="${r.advertencias.length > 0 ? 'advertencia' : ''}">${r.advertencias.join(" | ") || "OK"}</td>
+      </tr>
+    `;
+  });
+
+  html += "</tbody></table>";
+  container.innerHTML = html;
+}
+
+function activarModoEdicion() {
+  if (resultadosAsignacion.length === 0) {
+    alert("No hay asignación para editar. Procese los proyectos primero.");
+    return;
+  }
+  modoEdicion = true;
+  renderPreviewTableEditable();
+  toggleBotonesEdicion(true);
+}
+
+function guardarCambiosEdicion() {
+  const filas = document.querySelectorAll("#previewTableContainer tr[data-proyecto-id]");
+  const cambiosRealizados = [];
+
+  filas.forEach(fila => {
+    const proyectoId = parseInt(fila.getAttribute("data-proyecto-id"), 10);
+    const resultado = resultadosAsignacion.find(r => r.proyectoId === proyectoId);
+    if (!resultado) return;
+
+    const nuevoLab = fila.querySelector(".edit-laboratorista").value || null;
+    const nuevoMot = fila.querySelector(".edit-motorista").value || null;
+    const nuevoVeh = fila.querySelector(".edit-vehiculo").value || null;
+    const nuevaSede = fila.querySelector(".edit-sede").value;
+
+    if (resultado.laboratorista !== nuevoLab) {
+      cambiosRealizados.push({ timestamp: new Date().toISOString(), proyecto: resultado.nombreProyecto, campo: "laboratorista", anterior: resultado.laboratorista, nuevo: nuevoLab });
+      resultado.laboratorista = nuevoLab;
+    }
+    if (resultado.motorista !== nuevoMot) {
+      cambiosRealizados.push({ timestamp: new Date().toISOString(), proyecto: resultado.nombreProyecto, campo: "motorista", anterior: resultado.motorista, nuevo: nuevoMot });
+      resultado.motorista = nuevoMot;
+    }
+    if (resultado.vehiculo !== nuevoVeh) {
+      cambiosRealizados.push({ timestamp: new Date().toISOString(), proyecto: resultado.nombreProyecto, campo: "vehiculo", anterior: resultado.vehiculo, nuevo: nuevoVeh });
+      resultado.vehiculo = nuevoVeh;
+    }
+    if (resultado.sedeOrigen !== nuevaSede) {
+      cambiosRealizados.push({ timestamp: new Date().toISOString(), proyecto: resultado.nombreProyecto, campo: "sedeOrigen", anterior: resultado.sedeOrigen, nuevo: nuevaSede });
+      resultado.sedeOrigen = nuevaSede;
+    }
+  });
+
+  if (cambiosRealizados.length > 0) {
+    logCambios.push(...cambiosRealizados);
+    alert(cambiosRealizados.length + " cambio(s) guardado(s) correctamente.");
+  } else {
+    alert("No se detectaron cambios.");
+  }
+
+  modoEdicion = false;
+  renderPreviewTable();
+  toggleBotonesEdicion(false);
+}
+
+function cancelarEdicion() {
+  modoEdicion = false;
+  renderPreviewTable();
+  toggleBotonesEdicion(false);
+}
+
+function toggleBotonesEdicion(editando) {
+  const btnEditar = document.getElementById("btnEditar");
+  const btnGuardar = document.getElementById("btnGuardarCambios");
+  const btnCancelar = document.getElementById("btnCancelarEdicion");
+  if (btnEditar) btnEditar.style.display = editando ? "none" : "inline-block";
+  if (btnGuardar) btnGuardar.style.display = editando ? "inline-block" : "none";
+  if (btnCancelar) btnCancelar.style.display = editando ? "inline-block" : "none";
+}
+
 // ---------- INICIALIZACIÓN ----------
 document.addEventListener("DOMContentLoaded", function () {
   renderProyectosForm();
+  toggleBotonesEdicion(false);
 });

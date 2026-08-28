@@ -321,6 +321,7 @@ const PERSONAL_DB = [
 // ---------- BASE DE DATOS DE VEHÍCULOS ----------
 // tipo "PERSONAL": vehículo propio de una sola persona, no bloquea a otras
 // tipo "COMPARTIDO": vehículo de flota, sujeto a disponibilidad global
+// restringidoA (solo en algunos COMPARTIDO): array de nombres autorizados a usar ese vehículo específico
 
 const VEHICULOS_DB = [
   { id: "VEHICULO_ANGEL_PINEDA", tipo: "PERSONAL", asignadoA: "Ángel Pineda" },
@@ -334,6 +335,6 @@ const VEHICULOS_DB = [
   { id: "TOYOTA_4", tipo: "COMPARTIDO" },
   { id: "JMC_1", tipo: "COMPARTIDO" },
   { id: "JMC_2", tipo: "COMPARTIDO" },
-  { id: "MITSUBISHI_L200", tipo: "COMPARTIDO" },
-  { id: "HYUNDAI_1", tipo: "COMPARTIDO" }
+  { id: "MITSUBISHI_L200", tipo: "COMPARTIDO", restringidoA: ["Kevin Portillo", "Carlos Guzmán", "Gerson Guzmán", "Ricardo Rodríguez"] },
+  { id: "HYUNDAI_1", tipo: "COMPARTIDO", restringidoA: ["Nelson Mena"] }
 ];
